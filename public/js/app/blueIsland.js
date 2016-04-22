@@ -1,4 +1,4 @@
-var width  = window.innerWidth,
+var width = window.innerWidth,
     height = window.innerHeight;
 
 var scene = new THREE.Scene();
@@ -7,30 +7,30 @@ var renderer = new THREE.WebGLRenderer();
 var controls, swale, barrel, plane;
 
 
-function Start(){
+var socket = io();
+socket.on('arduino', function(data) {
+    drawSwale();
 
-    new Promise(function(resolve, reject){
+})
+
+
+function Start() {
+
+    new Promise(function(resolve, reject) {
 
         d3.json("js/assets/blueIslandElevation.json", resolve);
 
     }).then(OnCreate)
 }
 
-function OnCreate(data){
+function OnCreate(data) {
     console.log("ON CREATE!", data);
     // if (err) console.error('Fuck something is wrong')
 
     ConfigComponents();
-    GenerateGeomHiRes( data );
+    GenerateGeomHiRes(data);
     // GenerateGeomLoRes( dataPrep(orig) );
 }
-
-        var socket = io();
-    socket.on('arduino', function(data){
-        drawSwale();
-
-    })
-
 
 
 function render() {
@@ -41,20 +41,23 @@ function render() {
 
 
 function drawSwale() {
-    var material = new THREE.MeshLambertMaterial( {color: rgbToHex(0, 250, 0), side: THREE.DoubleSide });
-    var box = new THREE.Mesh( new THREE.BoxGeometry( 1, 1, 1, 4, 4, 4), material );
-        box.position.set(30 - Math.random()*60, 30 - Math.random()*60, 0 );
+    var material = new THREE.MeshLambertMaterial({
+        color: rgbToHex(0, 250, 0),
+        side: THREE.DoubleSide
+    });
+    var box = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1, 4, 4, 4), material);
+    box.position.set(30 - Math.random() * 60, 30 - Math.random() * 60, 0);
     plane.add(box);
 }
 
 
 function ConfigComponents() {
     renderer.setSize(width, height);
-    renderer.setClearColor(rgbToHex(255,255,255))
+    renderer.setClearColor(rgbToHex(255, 255, 255))
     document.getElementById('webgl').appendChild(renderer.domElement);
 
     camera.position.set(0, -100, 30);
-    controls = new THREE.TrackballControls(camera,renderer.domElement); {
+    controls = new THREE.TrackballControls(camera, renderer.domElement); {
         controls.rotateSpeed = 4.0;
         controls.zoomSpeed = 1.5;
         controls.panSpeed = 1.0;
@@ -87,7 +90,10 @@ function GenerateGeomHiRes(data) {
 
     // instantiate a loader
     var texture = new THREE.TextureLoader().load('js/assets/fullSizeBlueIsland.png');
-    var material = new THREE.MeshPhongMaterial({ map: texture, side: THREE.DoubleSide });
+    var material = new THREE.MeshPhongMaterial({
+        map: texture,
+        side: THREE.DoubleSide
+    });
     plane = new THREE.Mesh(geometry, material);
     scene.add(plane);
 
@@ -96,30 +102,32 @@ function GenerateGeomHiRes(data) {
 
 
 function dataPrep(data) {
-    var dataArray = d3.range(0, 24).map(function(d) { return new Array(24) })
-    var flattend = new Array(24*24);
+    var dataArray = d3.range(0, 24).map(function(d) {
+        return new Array(24)
+    })
+    var flattend = new Array(24 * 24);
     // console.log(d3.extent(data, d => +d.x ));  // missing an entire row
     // console.log(d3.extent(data, d => +d.y ));
     data.forEach(function(d) {
         console.log(+d.x, +d.y, +d.elevation);
-        dataArray[+d.x][+d.y] = (+d.elevation-200) * 0.04;
+        dataArray[+d.x][+d.y] = (+d.elevation - 200) * 0.04;
     })
 
     var i = 0;
-    d3.range(0,24).forEach(function(x) {
-        d3.range(0,24).forEach(function(y) {
+    d3.range(0, 24).forEach(function(x) {
+        d3.range(0, 24).forEach(function(y) {
 
             flattend[i] = dataArray[x][y] ? dataArray[x][y] : 0;
             // flattend[i] ? flattend[i] : 200.00
-            console.log(x,y, flattend[i] )
-            i ++
+            console.log(x, y, flattend[i])
+            i++
         })
     })
 
     return flattend;
 }
 
-function rgbToHex(R,G,B){
+function rgbToHex(R, G, B) {
     function toHex(c) {
         var hex = c.toString(16);
         return hex.length == 1 ? "0" + hex : hex;
