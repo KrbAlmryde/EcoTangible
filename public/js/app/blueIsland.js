@@ -4,13 +4,12 @@ var width = window.innerWidth,
 var scene, camera, renderer, controls;
 var Tangibles, Terrain, FloodPlane, Mosquitos
 
+var timeIndex = 0;
 // var socket = io();
 
 socket.on('nestByTime', function(data) {
     console.log('nestByTime', data);
 })
-
-
 
 socket.on('arduino', function(data) {
     drawSwale();
@@ -22,15 +21,36 @@ socket.on('data', function(data) {
     socket.emit("got it thanks", {see: data});
 })
 
-socket.on('nestByTime', function(data) {
-    console.log('nestByTime', data);
+
+socket.on('timeSliceData', function(incoming){
+    // console.log("got the data @ time", incoming.time, incoming.data);
+
+    for (var i = 0; i < FloodPlane.geometry.vertices.length; i++) {
+        var baseZ = Terrain.geometry.vertices[i].z;
+        FloodPlane.geometry.vertices[i].z = baseZ +incoming.data[i] - 1;
+    }
+    FloodPlane.geometry.verticesNeedUpdate = true;
+    render();
 })
 
 
-
-
-
 function Start() {
+    var p = d3.select("#demo p")
+
+    d3.select('#add').on('click', function(){
+        timeIndex+=1;
+        timeIndex = timeIndex > 24? 24: timeIndex;
+        p.text('Time Point is '+ timeIndex);
+        socket.emit('byTimeIndex', timeIndex);
+    })
+
+    d3.select('#subtract').on('click', function(){
+        timeIndex-=1;
+        timeIndex = timeIndex < 0? 0: timeIndex;
+        p.text('Time Point is '+ timeIndex);
+        socket.emit('byTimeIndex', timeIndex);
+    })
+
 
     new Promise(function(resolve, reject) {
 
@@ -101,15 +121,17 @@ function DrawTerrain(data) {
         geometry.vertices[i].z = +data[i].elevation - +extents[0]; // this sets the minimum elevation to zero
     }
 
-    DrawFloodPlane( geometry.clone() );
 
     // instantiate a loader
     var texture = new THREE.TextureLoader().load('js/assets/fullSizeBlueIsland.png');
     var material = new THREE.MeshPhongMaterial({ map: texture, side: THREE.DoubleSide });
     Terrain = new THREE.Mesh(geometry, material);
-    scene.add(Terrain);
 
+    DrawFloodPlane( Terrain.geometry.clone() );
+
+    scene.add(Terrain);
     render();
+
 }
 
 
@@ -127,8 +149,8 @@ function DrawFloodPlane(geometry) {
      *------------------------------------------------------------------------*/
 
     var texture = new THREE.TextureLoader().load('js/assets/water.jpg');
-    var material = new THREE.MeshPhongMaterial({ map: texture, side: THREE.DoubleSide, color: 0x0044f });
-    var FloodPlane = new THREE.Mesh(geometry, material);
+    var material = new THREE.MeshBasicMaterial({ opacity:0.03, color: 0x0044f });
+    FloodPlane = new THREE.Mesh(geometry, material);
     scene.add(FloodPlane)
     render();
 

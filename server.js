@@ -187,6 +187,8 @@ function processDataResults(results) {
         dBt.values.forEach(function(d) {
             nData[+d.x][+d.y] = d
         })
+        nData[23] = d3.range(25).map(function(d) { return {depth:0} })
+        nData[24] = d3.range(25).map(function(d) { return {depth:0} })
         // console.log(nData);
         // dBt.values = nData;
         return nData; //dBt.values;
@@ -213,28 +215,54 @@ function handleClientRequest(elevation, nested, matrix) {
 
 
     // console.log("handleClientRequest", elevation, nested, matrix);
-    var x_Scale = d3.scale.linear().domain([0, 240]).range([0, 24]),
-        y_scale = d3.scale.linear().domain([0, 240]).range([0, 24]);
+    var scale = d3.scale.linear().domain([0, 240]).range([0, 24])
 
+
+    var scaleXY = function(index) {
+        var y = Math.floor( scale( Math.floor(index/240) ) );
+        var x = Math.floor(scale( index%240 ));
+        return {x:x, y:y}
+
+    }
 
     io.on('connection', function(socket) {
-        socket.emit("onCreate", elevation);
-        // socket.emit("nestByTime", nested);
+        socket.emit("onCreate", "Yo");
 
+        socket.on('byTimeIndex', function(time) {
+            console.log('server: time index received', time);
+            var tSlice = d3.range(240*240).map(function(index) {
 
-        // socket.on('got it thanks', function() {
-        //     console.log('cool');
-        // })
+                var xy = scaleXY(index);
 
-        // socket.on('byTimeIndex', function(index) {
-        //     console.log('server: index received', index);
+                // console.log('we at', index, xy, matrix[time][xy.x][xy.y] );
+                var value = matrix[time][xy.x][xy.y].depth * 0.0033;
+                return value ? value: 0;
+            })
+            socket.emit('timeSliceData', {time: time, data: tSlice});
 
-        // })
+        })
 
     })
 
 
 } // End of asd
+
+
+function computerXYCoords(index, resolution) {
+    /*------------------------------------------------------------------------*
+     *
+     *  Purpose: computer the x/y coordiantes in terrain space?
+     *
+     *
+     *    Input: index value
+     *
+     *   Output: none
+     *
+     *------------------------------------------------------------------------*/
+    var y = Math.floor(index/resolution);
+    var x = index%resolution;
+    return [x, y]
+} // End of computerXYCoords
 
 
 // =================== START OF MAIN ================
