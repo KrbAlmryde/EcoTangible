@@ -1,25 +1,35 @@
 var width = window.innerWidth,
     height = window.innerHeight;
 
-var scene = new THREE.Scene(),
-    camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000),
-    renderer = new THREE.WebGLRenderer(),
-    Tangibles = new THREE.Object3D(),
-    controls;
-
-var Terrain, FloodTerrain, Mosquitos
+var scene, camera, renderer, controls;
+var Tangibles, Terrain, FloodPlane, Mosquitos
 
 // var socket = io();
+
+socket.on('nestByTime', function(data) {
+    console.log('nestByTime', data);
+})
+
+
+
 socket.on('arduino', function(data) {
     drawSwale();
 
 })
 
 socket.on('data', function(data) {
-    console.log("got it thanks", data);
+    console.log("MatrixByTime", data);
     socket.emit("got it thanks", {see: data});
-
 })
+
+socket.on('nestByTime', function(data) {
+    console.log('nestByTime', data);
+})
+
+
+
+
+
 function Start() {
 
     new Promise(function(resolve, reject) {
@@ -29,12 +39,16 @@ function Start() {
     }).then(function(data){
 
         console.log("ON CREATE!", data);
-        // if (err) console.error('Fuck something is wrong')
 
+        scene = new THREE.Scene();
+        Tangibles = new THREE.Object3D(),
+
+        renderer = new THREE.WebGLRenderer();
         renderer.setSize(width, height);
         renderer.setClearColor(rgbToHex(255, 255, 255))
         document.getElementById('webgl').appendChild(renderer.domElement);
 
+        camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
         camera.position.set(0, -100, 30);
         controls = new THREE.TrackballControls(camera, renderer.domElement); {
             controls.rotateSpeed = 4.0;
@@ -52,7 +66,7 @@ function Start() {
         }
 
         scene.add(new THREE.AmbientLight(0xeeeeee));
-        GenerateGeomHiRes(data);
+        DrawTerrain(data);
     })
 }
 
@@ -71,32 +85,54 @@ function drawSwale() {
     });
     var box = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1, 4, 4, 4), material);
     box.position.set(30 - Math.random() * 60, 30 - Math.random() * 60, 0);
-    plane.add(box);
+    Terrain.add(box);
 }
 
 
-function GenerateGeomHiRes(data) {
+function DrawTerrain(data) {
 
     var extents = d3.extent(data, d => +d.elevation);
     console.log(data, extents);
 
     var geometry = new THREE.PlaneGeometry(240, 240, 239, 239);
     console.log(geometry.vertices.length);
+
     for (var i = 0; i < geometry.vertices.length; i++) {
         geometry.vertices[i].z = +data[i].elevation - +extents[0]; // this sets the minimum elevation to zero
     }
 
+    DrawFloodPlane( geometry.clone() );
+
     // instantiate a loader
     var texture = new THREE.TextureLoader().load('js/assets/fullSizeBlueIsland.png');
-    var material = new THREE.MeshPhongMaterial({
-        map: texture,
-        side: THREE.DoubleSide
-    });
-    plane = new THREE.Mesh(geometry, material);
-    scene.add(plane);
+    var material = new THREE.MeshPhongMaterial({ map: texture, side: THREE.DoubleSide });
+    Terrain = new THREE.Mesh(geometry, material);
+    scene.add(Terrain);
 
     render();
 }
+
+
+
+function DrawFloodPlane(geometry) {
+    /*------------------------------------------------------------------------*
+     *
+     *  Purpose: Generates a geometry layer
+     *
+     *
+     *    Input: geometry - THREE.Geometry object with existing verticies
+     *
+     *   Output: none
+     *
+     *------------------------------------------------------------------------*/
+
+    var texture = new THREE.TextureLoader().load('js/assets/water.jpg');
+    var material = new THREE.MeshPhongMaterial({ map: texture, side: THREE.DoubleSide, color: 0x0044f });
+    var FloodPlane = new THREE.Mesh(geometry, material);
+    scene.add(FloodPlane)
+    render();
+
+} // End of DrawFloodPlane
 
 
 // =====================  UTILITY FUNCTIONS  =====================  \\
@@ -107,43 +143,4 @@ function rgbToHex(R, G, B) {
         return hex.length == 1 ? "0" + hex : hex;
     }
     return "#" + toHex(R) + toHex(G) + toHex(B)
-}
-
-
-
-function configureData(data, mdata) {
-    console.log(data);
-    data.forEach(function(d) {
-        d.depth = +d.depth
-        d.time = +d.time
-        d.x = +d.x
-        d.y = +d.y
-        if (_('maxDepth') < d.depth)
-            _('maxDepth', d.depth)
-        if ( _('minDepth') > d.depth)
-             _('minDepth' ,d.depth )
-    })
-    var nestByTime = d3.nest()
-        .key(function(d) { return d.time })
-        .entries(data)
-
-    var matrix = nestByTime.map(function(dBt) {
-        var nData = d3.range(23).map(function(d) { return d3.range(25) })
-
-        dBt.values.forEach(function(d) { nData[+d.x][+d.y] = d })
-
-        // dBt.values = nData;
-        return nData; //dBt.values;
-    })
-
-
-    mdata.forEach(function(d) {
-        matrix[ matrix.length - 1 ][+d.x][+d.y]['max'] = d.max
-    })
-
-
-    _("dataByTime", nestByTime)
-    _('dataMatrix', matrix)
-    console.log(_("dataByTime"));
-    console.log("dataMatrix", _('dataMatrix').length, _('dataMatrix'));
 }
